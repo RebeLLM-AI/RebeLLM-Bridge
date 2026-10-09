@@ -1,0 +1,97 @@
+import type { PromptParts } from './anthropic/map.js'
+import { ChatError } from './tab.js'
+
+export type LogLine = (line: string) => void
+
+/** What of a request the tab did not get; the log names it, never the content. */
+export interface Ignored {
+  /** Content block types replaced by a placeholder, with counts. */
+  blocks: Record<string, number>
+  /** A forced tool choice: `any`, or `tool <name>`. */
+  toolChoice?: string
+  /** The types of the server tools dropped. */
+  serverTools: string[]
+}
+
+/** Shell tool results the bridge shortened on their way to the tab, with their sizes. */
+export interface Compacted {
+  results: number
+  before: number
+  after: number
+  /** Claude Code's noise reminders removed. */
+  reminders: number
+}
+
+/** The lifecycle of one chat request as log lines; message content never goes in. */
+export interface RequestLog {
+  /** With `parts`, the line shows where the estimate goes. */
+  arrived(tokens: number, tools: number, parts?: PromptParts): void
+  /** Writes nothing when the tab got everything. */
+  ignored(i: Ignored): void
+  /** Writes nothing when no result got shorter and no reminder went. */
+  compacted(c: Compacted): void
+  queued(position: number): void
+  /** Only the first call writes a line. */
+  firstToken(): void
+  /** A web search the bridge ran: its result count or error code, never the query. */
+  searched(outcome: number | string): void
+  done(reason: string, outputTokens: number): void
+  aborted(): void
+  error(e: unknown): void
+  refused(status: number, message: string): void
+}
+
+/** 11204 as `11 204`. */
+const group = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+const count = (n: number, word: string) => `${group(n)} ${word}${n === 1 ? '' : 's'}`
+
+const reason = (e: unknown) =>
+  e instanceof ChatError && e.kind === 'tab'
+    ? `the tab reported: ${e.message}`
+    : e instanceof Error
+      ? e.message
+      : String(e)
+
+/** Lines `chat <id> <route>: <event>`, timed from this call; a missing `log` writes nothing. */
+export function requestLog(log: LogLine | undefined, route: string, id: string, now = Date.now): RequestLog {
+  const start = now()
+  const line = (event: string) => log?.(`chat ${id} ${route}: ${event}`)
+  const since = () => `+${((now() - start) / 1000).toFixed(1)}s`
+  let first = false
+  return {
+    arrived: (tokens, tools, parts) => {
+      const split = parts
+        ? ` (system ${group(parts.system)}, tools ${group(parts.tools)}, messages ${group(parts.messages)})`
+        : ''
+      line(`arrived, ${count(tokens, 'prompt token')}${split}, ${count(tools, 'tool')}`)
+    },
+    ignored: (i) => {
+      const parts = [
+        ...Object.entries(i.blocks).map(([type, n]) => count(n, `${type} block`)),
+        ...(i.toolChoice ? [`tool_choice ${i.toolChoice}`] : []),
+        ...i.serverTools.map((t) => `server tool ${t}`),
+      ]
+      if (parts.length) line(`ignored ${parts.join(', ')}`)
+    },
+    compacted: (c) => {
+      const parts = [
+        ...(c.after < c.before
+          ? [`${count(c.results, 'tool result')}, ${group(c.before)} chars to ${group(c.after)}`]
+          : []),
+        ...(c.reminders ? [`${count(c.reminders, 'reminder')} dropped`] : []),
+      ]
+      if (parts.length) line(`compacted ${parts.join(', ')}`)
+    },
+    queued: (position) => line(`queued at ${position} ${since()}`),
+    firstToken: () => {
+      if (first) return
+      first = true
+      line(`first token ${since()}`)
+    },
+    searched: (o) => line(`search ${typeof o === 'number' ? count(o, 'result') : `error ${o}`} ${since()}`),
+    done: (why, tokens) => line(`done ${why}, ${count(tokens, 'token')}, ${since()}`),
+    aborted: () => line(`client aborted ${since()}`),
+    error: (e) => line(`error ${reason(e)} ${since()}`),
+    refused: (status, message) => line(`refused ${status} ${message} ${since()}`),
+  }
+}

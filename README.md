@@ -173,7 +173,7 @@ in this repo's own checkout, enables the pre-commit gate.
 
 ## Licence
 
-Apache-2.0 with the Commons Clause (see `LICENSE`): free to use, change and share, for
-anyone, companies included; not for sale — no selling the software or a hosting or support
-service whose value comes substantially from it. Source-available, not open source in the
+[PolyForm Noncommercial 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0)
+(see `LICENSE`): free to use, change and share for personal and other non-commercial
+purposes; commercial use needs a separate licence. Source-available, not open source in the
 OSI sense. RebeLLM itself is a separate, proprietary product.

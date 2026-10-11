@@ -5,10 +5,11 @@ TBD - created by archiving change anonymous-publisher. Update Purpose after arch
 ## Requirements
 ### Requirement: Package names the RebeLLM authors and repository
 `package.json` SHALL give "RebeLLM" as author and `github.com/RebeLLM-AI/RebeLLM-Bridge` as
-repository and issue tracker, and the licence SHALL name the RebeLLM authors as licensor; no
-company SHALL be named.
+repository and issue tracker, and `PolyForm-Noncommercial-1.0.0` as licence; `LICENSE` SHALL
+be the PolyForm Noncommercial 1.0.0 text with a required notice naming the RebeLLM authors as
+copyright holder; no company SHALL be named.
 
 #### Scenario: Metadata
 - **WHEN** the package metadata is read
-- **THEN** the author is "RebeLLM" and the repository and bugs URLs are under `RebeLLM-AI/RebeLLM-Bridge`
+- **THEN** the author is "RebeLLM", the repository and bugs URLs are under `RebeLLM-AI/RebeLLM-Bridge`, and the licence is `PolyForm-Noncommercial-1.0.0`
 

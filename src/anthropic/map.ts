@@ -7,7 +7,9 @@ import type { ChatInput } from '../tab.js'
 import type { ApiError, ContentBlock, Message, StopReason, ToolUseBlock, Usage } from './types.js'
 
 type Obj = Record<string, unknown>
-const isObj = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v)
+// JSON-ish object: present, an object, not an array. `map.ts` and `protocol.ts` each define
+// their own; they never import the other's, so the near-duplicate is intentional, not a copy.
+const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
 const isStr = (v: unknown): v is string => typeof v === 'string'
 const absent = (v: unknown) => v === undefined || v === null
 
@@ -58,6 +60,7 @@ interface Collected {
 const omitted = (type: string) => `[${type} omitted]`
 
 function blockText(b: unknown, at: string, ignored: Ignored): string | { error: string } {
+  // Every caller funnels content blocks through here, so the shape check lives in one place.
   if (!isObj(b) || !isStr(b.type)) return { error: `${at} must be a content block with a type` }
   if (b.type !== 'text') {
     ignored.blocks[b.type] = (ignored.blocks[b.type] ?? 0) + 1
@@ -76,6 +79,7 @@ function blocksText(blocks: unknown[], path: string, ignored: Ignored): string |
   return parts.join('\n\n')
 }
 
+// A `system` may arrive as plain text or as an array of text blocks; anything else is a bad request.
 function systemText(s: unknown, ignored: Ignored): string | { error: string } {
   if (absent(s)) return ''
   if (isStr(s)) return s
@@ -128,6 +132,7 @@ function userMessages(
   for (const [j, b] of content.entries()) {
     const at = `${path}.${j}`
     if (!isObj(b) || !isStr(b.type)) return { error: `${at} must be a content block with a type` }
+    // Tool results get their own message (below); other blocks go through blockText.
     if (b.type === 'tool_result') {
       flush()
       const m = toolResult(b, at, names, collected)
@@ -158,6 +163,7 @@ function assistantMessage(
   for (const [j, b] of content.entries()) {
     const at = `${path}.${j}`
     if (!isObj(b) || !isStr(b.type)) return { error: `${at} must be a content block with a type` }
+    // Text is collected in order; tool_use blocks are gathered separately so their ids map to names.
     if (b.type === 'text') {
       if (!isStr(b.text)) return { error: `${at}.text must be a string` }
       if (b.text) texts.push(b.text)

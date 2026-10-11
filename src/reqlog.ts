@@ -59,13 +59,13 @@ export function requestLog(log: LogLine | undefined, route: string, id: string, 
   const since = () => `+${((now() - start) / 1000).toFixed(1)}s`
   let first = false
   return {
-    arrived: (tokens, tools, parts) => {
+    arrived(tokens, tools, parts) {
       const split = parts
         ? ` (system ${group(parts.system)}, tools ${group(parts.tools)}, messages ${group(parts.messages)})`
         : ''
       line(`arrived, ${count(tokens, 'prompt token')}${split}, ${count(tools, 'tool')}`)
     },
-    ignored: (i) => {
+    ignored(i) {
       const parts = [
         ...Object.entries(i.blocks).map(([type, n]) => count(n, `${type} block`)),
         ...(i.toolChoice ? [`tool_choice ${i.toolChoice}`] : []),
@@ -73,7 +73,8 @@ export function requestLog(log: LogLine | undefined, route: string, id: string, 
       ]
       if (parts.length) line(`ignored ${parts.join(', ')}`)
     },
-    compacted: (c) => {
+    compacted(c) {
+      // Only note the compaction when something actually shrank or a reminder was dropped.
       const parts = [
         ...(c.after < c.before
           ? [`${count(c.results, 'tool result')}, ${group(c.before)} chars to ${group(c.after)}`]
@@ -82,16 +83,28 @@ export function requestLog(log: LogLine | undefined, route: string, id: string, 
       ]
       if (parts.length) line(`compacted ${parts.join(', ')}`)
     },
-    queued: (position) => line(`queued at ${position} ${since()}`),
-    firstToken: () => {
+    queued(position) {
+      line(`queued at ${position} ${since()}`)
+    },
+    firstToken() {
       if (first) return
       first = true
       line(`first token ${since()}`)
     },
-    searched: (o) => line(`search ${typeof o === 'number' ? count(o, 'result') : `error ${o}`} ${since()}`),
-    done: (why, tokens) => line(`done ${why}, ${count(tokens, 'token')}, ${since()}`),
-    aborted: () => line(`client aborted ${since()}`),
-    error: (e) => line(`error ${reason(e)} ${since()}`),
-    refused: (status, message) => line(`refused ${status} ${message} ${since()}`),
+    searched(o) {
+      line(`search ${typeof o === 'number' ? count(o, 'result') : `error ${o}`} ${since()}`)
+    },
+    done(why, tokens) {
+      line(`done ${why}, ${count(tokens, 'token')}, ${since()}`)
+    },
+    aborted() {
+      line(`client aborted ${since()}`)
+    },
+    error(e) {
+      line(`error ${reason(e)} ${since()}`)
+    },
+    refused(status, message) {
+      line(`refused ${status} ${message} ${since()}`)
+    },
   }
 }

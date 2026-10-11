@@ -82,7 +82,9 @@ export type BridgeMessage =
   | { t: 'pong' }
 
 type Obj = Record<string, unknown>
-const isObj = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v)
+// A plain object here means JSON-ish: not null, not an array. Kept separate from map.ts's
+// copies on purpose; the two files never see each other's guards.
+const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
 const isStr = (v: unknown): v is string => typeof v === 'string'
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 const optStr = (v: unknown) => v === undefined || isStr(v)
